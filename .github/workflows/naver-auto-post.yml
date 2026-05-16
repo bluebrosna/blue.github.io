@@ -21,7 +21,9 @@ jobs:
   convert-and-post:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,20 +45,39 @@ jobs:
           npm install
           npm install playwright
 
-      - name: Convert Markdown to Naver HTML
+      - name: Determine post file (push event)
+        if: github.event_name == 'push'
+        id: detect_file
         run: |
-          node convert-quartz.mjs "${{ inputs.post_file || github.event.inputs.post_file }}"
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'content/**' | head -1)
+          if [ -z "$CHANGED" ]; then
+            echo "No content file changed, skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            FILENAME=$(basename "$CHANGED")
+            TITLE="${FILENAME%.*}"
+            echo "post_file=$FILENAME" >> $GITHUB_OUTPUT
+            echo "post_title=$TITLE" >> $GITHUB_OUTPUT
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Convert Markdown to Naver HTML
+        if: github.event_name == 'workflow_dispatch' || steps.detect_file.outputs.skip != 'true'
+        run: |
+          FILE="${{ inputs.post_file || steps.detect_file.outputs.post_file }}"
+          node convert-quartz.mjs "$FILE"
         env:
-          POST_TITLE: ${{ inputs.post_title || github.event.inputs.post_title }}
+          POST_TITLE: ${{ inputs.post_title || steps.detect_file.outputs.post_title }}
 
       - name: Verify HTML Output
+        if: github.event_name == 'workflow_dispatch' || steps.detect_file.outputs.skip != 'true'
         run: |
           echo "=== 변환 결과 ==="
           echo "제목: $(cat naver_blog_title.txt)"
           echo "크기: $(wc -c < naver_blog_content.html) bytes"
 
       - name: Post to Naver Blog
-        if: env.NAVER_ID != ''
+        if: (github.event_name == 'workflow_dispatch' || steps.detect_file.outputs.skip != 'true') && env.NAVER_ID != ''
         run: |
           echo "=== 네이버 블로그 자동 게시 시작 ==="
           node naver-auto-post.mjs
@@ -66,7 +87,7 @@ jobs:
         shell: bash
 
       - name: Upload HTML as Artifact
-        if: env.NAVER_ID == ''
+        if: (github.event_name == 'workflow_dispatch' || steps.detect_file.outputs.skip != 'true') && env.NAVER_ID == ''
         uses: actions/upload-artifact@v4
         with:
           name: naver-blog-html-${{ github.run_id }}

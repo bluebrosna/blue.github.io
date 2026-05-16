@@ -41,6 +41,7 @@ jobs:
       - name: Install Dependencies
         run: |
           npm install
+          npm install playwright
 
       - name: Convert Markdown to Naver HTML
         run: |

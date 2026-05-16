@@ -6,7 +6,7 @@ tags:
   - ChatGPT
   - 자동화
   - AI活用
-  -future
+  - future
 description: "AI 에이전트가 무엇인지, 일반 채팅과 어떻게 다른지, 그리고 실제로 업무에 활용했을 때의感想을담아 설명합니다"
 ---
 

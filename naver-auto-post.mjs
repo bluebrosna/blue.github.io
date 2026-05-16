@@ -37,7 +37,7 @@ async function postToNaver() {
   try {
     console.log('1. 네이버 블로그 접속...');
     await page.goto('https://blog.naver.com/PostWriteForm.naver', {
-      waitUntil: 'networkidle2',
+      waitUntil: 'networkidle',
       timeout: 30000
     });
     
@@ -59,14 +59,14 @@ async function postToNaver() {
       
       // 로그인 버튼 클릭
       await page.click('#log.login');
-      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+      await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 });
       
       console.log('✓ 로그인 완료');
     }
     
     console.log('4. 글쓰기 페이지 이동...');
     await page.goto('https://blog.naver.com/PostWriteForm.naver', {
-      waitUntil: 'networkidle2',
+      waitUntil: 'networkidle',
       timeout: 30000
     });
     

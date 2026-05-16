@@ -9,6 +9,8 @@ import { mkdirSync, readFileSync } from 'fs';
 
 const NAVER_ID = process.env.NAVER_ID;
 const NAVER_PW = process.env.NAVER_PW;
+const NAVER_COOKIE_NID_AUT = process.env.NAVER_COOKIE_NID_AUT;
+const NAVER_COOKIE_NID_SES = process.env.NAVER_COOKIE_NID_SES;
 
 const title = readFileSync('naver_blog_title.txt', 'utf-8').trim();
 const bodyHtml = readFileSync('naver_blog_content.html', 'utf-8');
@@ -90,30 +92,56 @@ async function postToNaver() {
   const page = await context.newPage();
   
   try {
-    console.log('1. 네이버 블로그 접속...');
-        // 먼저 네이버 로그인 페이지로 직접 이동
-        console.log('2. 로그인 페이지로 이동...');
-        await page.goto('https://nid.naver.com/nidlogin.login', {
-                            waitUntil: 'domcontentloaded',
-                timeout: 30000
-        });
+        console.log('1. 네이버 블로그 접속...');
 
-        console.log('3. 로그인 시도...');
+        // 쿠키 기반 로그인 (NAVER_COOKIE_NID_AUT, NAVER_COOKIE_NID_SES가 있으면 ID/PW 로그인 스킵)
+        if (NAVER_COOKIE_NID_AUT && NAVER_COOKIE_NID_SES) {
+                console.log('2. 쿠키 기반 로그인 사용...');
+                await context.addCookies([
+                  {
+                              name: 'NID_AUT',
+                              value: NAVER_COOKIE_NID_AUT,
+                              domain: '.naver.com',
+                              path: '/',
+                              httpOnly: true,
+                              secure: true,
+                              sameSite: 'Lax'
+                  },
+                  {
+                              name: 'NID_SES',
+                              value: NAVER_COOKIE_NID_SES,
+                              domain: '.naver.com',
+                              path: '/',
+                              httpOnly: true,
+                              secure: true,
+                              sameSite: 'Lax'
+                  }
+                        ]);
+                console.log('✓ 쿠키 주입 완료');
+        } else {
+                // ID/PW 기반 로그인
+                console.log('2. 로그인 페이지로 이동...');
+                await page.goto('https://nid.naver.com/nidlogin.login', {
+                          waitUntil: 'domcontentloaded',
+                          timeout: 30000
+                });
 
-        // 아이디 입력
-        await page.waitForSelector('#id', { timeout: 10000 });
-        await page.fill('#id', NAVER_ID);
+                console.log('3. 로그인 시도...');
 
-        // 비밀번호 입력
-        await page.waitForSelector('#pw', { timeout: 10000 });
-        await page.fill('#pw', NAVER_PW);
+                // 아이디 입력
+                await page.waitForSelector('#id', { timeout: 10000 });
+                await page.fill('#id', NAVER_ID);
 
-        // 로그인 버튼 클릭
-        await page.click('#log\\.login');
-            await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 });
+                // 비밀번호 입력
+                await page.waitForSelector('#pw', { timeout: 10000 });
+                await page.fill('#pw', NAVER_PW);
 
-        console.log('✓ 로그인 완료');
+                // 로그인 버튼 클릭
+                await page.click('#log\\.login');
+                await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 });
 
+                console.log('✓ 로그인 완료');
+        }
     
     console.log('4. 글쓰기 페이지 이동...');
         await page.goto(`https://blog.naver.com/PostWriteForm.naver?blogId=${NAVER_ID}`, {

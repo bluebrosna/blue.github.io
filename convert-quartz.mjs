@@ -1,7 +1,14 @@
 import { JSDOM } from "jsdom";
-import { readFileSync, writeFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { existsSync, readFileSync, writeFileSync } from "fs";
+import { resolve } from "path";
+import matter from "gray-matter";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
+import remarkRehype from "remark-rehype";
+import rehypeRaw from "rehype-raw";
+import { toHtml } from "hast-util-to-html";
 
 // --- Converter from naver_blog_hacked (inlined) ---
 // We'll import the TS converter logic rewritten for Node
@@ -219,7 +226,38 @@ function renderBlockNode(node, out) {
 }
 
 // --- Main ---
-const htmlContent = readFileSync("quartz_page.html", "utf-8");
+const inputFile = process.argv[2];
+
+function resolveInputPath(file) {
+  if (!file) return null;
+  const direct = resolve(file);
+  if (existsSync(direct)) return direct;
+  const contentPath = resolve("content", file);
+  if (existsSync(contentPath)) return contentPath;
+  return direct;
+}
+
+async function markdownFileToArticle(file) {
+  const source = readFileSync(file, "utf-8");
+  const parsed = matter(source);
+  const hast = await unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .use(remarkBreaks)
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(rehypeRaw)
+    .run(await unified().use(remarkParse).parse(parsed.content));
+  const html = toHtml(hast, { allowDangerousHtml: true });
+  const title = process.env.POST_TITLE || parsed.data.title || null;
+  const h1 = title ? `<h1>${esc(String(title))}</h1>` : "";
+  return `<!doctype html><html><body><article>${h1}${html}</article></body></html>`;
+}
+
+const inputPath = resolveInputPath(inputFile);
+const htmlContent = inputPath && existsSync(inputPath)
+  ? await markdownFileToArticle(inputPath)
+  : readFileSync("quartz_page.html", "utf-8");
+
 const dom = new JSDOM(htmlContent);
 const doc = dom.window.document;
 

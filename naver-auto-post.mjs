@@ -91,36 +91,32 @@ async function postToNaver() {
   
   try {
     console.log('1. 네이버 블로그 접속...');
-    await page.goto('https://blog.naver.com/PostWriteForm.naver', {
-      waitUntil: 'networkidle',
-      timeout: 30000
-    });
-    
-    console.log('2. 로그인 페이지 확인...');
-    const currentUrl = page.url();
-    console.log('현재 URL:', currentUrl);
-    
-    // 로그인 필요 시
-    if (currentUrl.includes('login') || currentUrl.includes('nidlogin')) {
-      console.log('3. 로그인 시도...');
-      
-      // 아이디 입력
-      await page.waitForSelector('#id', { timeout: 10000 });
-      await page.fill('#id', NAVER_ID);
-      
-      // 비밀번호 입력
-      await page.waitForSelector('#pw', { timeout: 10000 });
-      await page.fill('#pw', NAVER_PW);
-      
-      // 로그인 버튼 클릭
-      await page.click('#log.login');
-      await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 });
-      
-      console.log('✓ 로그인 완료');
-    }
+        // 먼저 네이버 로그인 페이지로 직접 이동
+        console.log('2. 로그인 페이지로 이동...');
+        await page.goto('https://nid.naver.com/nidlogin.login', {
+                waitUntil: 'networkidle',
+                timeout: 30000
+        });
+
+        console.log('3. 로그인 시도...');
+
+        // 아이디 입력
+        await page.waitForSelector('#id', { timeout: 10000 });
+        await page.fill('#id', NAVER_ID);
+
+        // 비밀번호 입력
+        await page.waitForSelector('#pw', { timeout: 10000 });
+        await page.fill('#pw', NAVER_PW);
+
+        // 로그인 버튼 클릭
+        await page.click('#log\\.login');
+        await page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 });
+
+        console.log('✓ 로그인 완료');
+
     
     console.log('4. 글쓰기 페이지 이동...');
-    await page.goto('https://blog.naver.com/PostWriteForm.naver', {
+        await page.goto(`https://blog.naver.com/PostWriteForm.naver?blogId=${NAVER_ID}`, {
       waitUntil: 'networkidle',
       timeout: 30000
     });

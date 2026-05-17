@@ -18,7 +18,7 @@
  */
 
 import { chromium } from 'playwright';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, unlinkSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -51,7 +51,7 @@ function acquireLock() {
 }
 
 function releaseLock() {
-  try { writeFileSync(LOCK_FILE, ''); } catch {}
+  try { unlinkSync(LOCK_FILE); } catch {}
 }
 
 function checkDailyLimit() {
@@ -96,18 +96,20 @@ async function telegramNotify(text, photoPath) {
   }
 }
 
-async function findFirst(page, selectors, label, timeout = 15000) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function findFirst(scope, selectors, label, timeout = 15000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     for (const sel of selectors) {
       try {
-        const loc = page.locator(sel).first();
+        const loc = scope.locator(sel).first();
         if (await loc.count() && await loc.isVisible().catch(() => false)) {
           return loc;
         }
       } catch {}
     }
-    await page.waitForTimeout(400);
+    await sleep(400);
   }
   throw new Error(`${label} 요소를 찾을 수 없음 (timeout ${timeout}ms)`);
 }
@@ -127,97 +129,150 @@ async function main() {
   log(`📦 본문 크기: ${bodyHtml.length} bytes`);
 
   acquireLock();
-  const incrementCounter = checkDailyLimit();
-
-  const context = await chromium.launchPersistentContext(PROFILE_DIR, {
-    headless: false,            // 헤드리스는 봇 탐지에 더 잘 걸림. 화면 켜진 채로 실행.
-    viewport: { width: 1280, height: 900 },
-    locale: 'ko-KR',
-    timezoneId: 'Asia/Seoul',
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
-
-  const page = context.pages()[0] || await context.newPage();
-
+  let context;
   try {
-    // 1) 로그인 상태 확인
-    await page.goto('https://blog.naver.com/bluebrosna', { waitUntil: 'domcontentloaded' });
-    const loggedIn = await page.locator('a:has-text("내 블로그"), .area_user').count();
-    if (!loggedIn) {
-      throw new Error('로그인 세션 만료 — setup-naver-profile.mjs 를 다시 실행하세요');
+    // DRY_RUN은 일일 한도 체크/카운트 대상 아님 (테스트 무제한)
+    const incrementCounter = DRY_RUN ? (() => {}) : checkDailyLimit();
+
+    context = await chromium.launchPersistentContext(PROFILE_DIR, {
+      headless: false,            // 헤드리스는 봇 탐지에 더 잘 걸림. 화면 켜진 채로 실행.
+      viewport: { width: 1280, height: 900 },
+      locale: 'ko-KR',
+      timezoneId: 'Asia/Seoul',
+      args: ['--disable-blink-features=AutomationControlled'],
+    });
+
+    const page = context.pages()[0] || await context.newPage();
+    return await runEditorFlow({ page, context, title, bodyHtml, incrementCounter });
+  } finally {
+    releaseLock();
+    if (context) await context.close().catch(() => {});
+  }
+}
+
+async function runEditorFlow({ page, context, title, bodyHtml, incrementCounter }) {
+  try {
+    // 1) 로그인 상태 확인 — 네이버 인증 쿠키 직접 검사
+    await page.goto('https://www.naver.com', { waitUntil: 'domcontentloaded' });
+    const cookies = await context.cookies('https://www.naver.com');
+    const hasAuth = cookies.some((c) => c.name === 'NID_AUT' && c.value);
+    const hasSes  = cookies.some((c) => c.name === 'NID_SES' && c.value);
+    if (!hasAuth || !hasSes) {
+      throw new Error(
+        `로그인 세션 만료 (NID_AUT=${hasAuth}, NID_SES=${hasSes}) — ` +
+        `setup-naver-profile.mjs 를 다시 실행하세요`
+      );
     }
-    log('✅ 로그인 세션 유효');
+    log('✅ 로그인 세션 유효 (NID_AUT + NID_SES OK)');
 
     // 2) 글쓰기 페이지로 이동
     await page.goto('https://blog.naver.com/bluebrosna/postwrite', {
       waitUntil: 'networkidle', timeout: 30000,
     });
-    await page.waitForTimeout(2000);
+    await sleep(3000);
 
-    // SmartEditor One은 iframe 안에 있음
-    const editorFrame = page.frameLocator('iframe#mainFrame, iframe[name="mainFrame"]').first();
-
-    // 3) "이어서 작성하시겠어요?" 팝업이 뜨면 "취소"
+    // 3) "이어서 작성하시겠어요?" 팝업 — popup 내부의 취소 버튼만 정확히 클릭.
+    //    ⚠️ 'button:has-text("취소")'는 툴바의 '취소선' 버튼도 매칭하므로 사용 금지.
+    //    반드시 popup 컨테이너 내부로 스코프 한정.
     try {
-      const cancelBtn = editorFrame.locator('button:has-text("취소"), .se-popup-button-cancel').first();
-      if (await cancelBtn.isVisible({ timeout: 3000 })) {
-        await cancelBtn.click();
-        log('🧹 이전 임시저장 팝업 취소');
+      const popup = page.locator('.se-popup-container, .se-popup, [class*="popup"]').first();
+      if (await popup.isVisible({ timeout: 3000 })) {
+        const cancelBtn = popup.locator(
+          '.se-popup-button-cancel, button:has-text("취소"):not(:has-text("선"))'
+        ).first();
+        if (await cancelBtn.isVisible({ timeout: 1500 })) {
+          await cancelBtn.click();
+          await sleep(1200);
+          log('🧹 "이어서 작성" 팝업 취소 — 새로 작성 시작');
+        }
       }
     } catch {}
 
-    // 4) 제목 입력
-    const titleEl = await findFirst(editorFrame, [
-      '.se-title-text [contenteditable="true"]',
-      '.se-section-documentTitle [contenteditable="true"]',
-      'textarea[placeholder*="제목"]',
-    ], '제목 영역');
+    // 4) 제목 입력 — 컴포넌트 클릭 후 기존 내용 전체삭제 → 새로 타이핑
+    const titleEl = await findFirst(page, [
+      '.se-component.se-documentTitle',
+      '.se-section-documentTitle',
+      '.se-documentTitle .se-placeholder',
+    ], '제목 컴포넌트');
     await titleEl.click();
-    await page.keyboard.type(title, { delay: 30 });
-    log('✍️ 제목 입력 완료');
+    await sleep(500);
+    // 전체선택 후 삭제 (이전 임시저장 내용 제거)
+    await page.keyboard.press('Meta+A');
+    await sleep(200);
+    await page.keyboard.press('Delete');
+    await sleep(300);
+    await page.keyboard.type(title, { delay: 25 });
+    log('✍️ 제목 입력 완료 (기존 내용 클리어 후)');
+    await sleep(500);
 
-    // 5) 본문 입력 (HTML을 클립보드로 붙여넣기)
-    const bodyEl = await findFirst(editorFrame, [
-      '.se-section-text [contenteditable="true"]',
-      '.se-component-content [contenteditable="true"]',
-      '[contenteditable="true"][data-placeholder]',
-    ], '본문 영역');
+    // 5) 본문으로 이동 — 본문 컴포넌트 클릭 + 전체삭제
+    const bodyEl = await findFirst(page, [
+      '.se-component.se-text',
+      '.se-section-text',
+      '.se-text .se-component-content',
+    ], '본문 컴포넌트');
     await bodyEl.click();
-    await page.waitForTimeout(500);
+    await sleep(500);
+    // 본문도 전체선택 후 삭제 — 누적 방지
+    await page.keyboard.press('Meta+A');
+    await sleep(200);
+    await page.keyboard.press('Delete');
+    await sleep(400);
+    log('🧹 본문 이전 내용 클리어');
 
-    // 클립보드에 HTML 넣고 paste
-    await page.evaluate((html) => {
-      const item = new ClipboardItem({
-        'text/html': new Blob([html], { type: 'text/html' }),
-        'text/plain': new Blob([html.replace(/<[^>]+>/g, '')], { type: 'text/plain' }),
-      });
-      return navigator.clipboard.write([item]);
-    }, bodyHtml).catch(async () => {
-      // 클립보드 권한 없을 때 fallback: 일반 typing
-      log('⚠️ 클립보드 API 실패, type fallback');
-      await bodyEl.fill(bodyHtml.replace(/<[^>]+>/g, ''));
-    });
-    await page.keyboard.press('Meta+V').catch(() => page.keyboard.press('Control+V'));
-    await page.waitForTimeout(1500);
-    log('📋 본문 붙여넣기 완료');
+    // SmartEditor가 inline style 붙은 paste에 취소선을 표시하는 것으로 보임.
+    // 모든 style 속성을 제거하고 시멘틱 태그만 남긴 후 paste.
+    const cleanedHtml = bodyHtml
+      .replace(/\s*style="[^"]*"/g, '')      // 모든 style 속성 제거
+      .replace(/<span>([\s\S]*?)<\/span>/g, '$1')  // 의미 없는 span unwrap
+      .replace(/<p>\s*<\/p>/g, '');                 // 빈 단락 제거
+
+    // HTML을 클립보드에 넣고 paste 시도
+    const clipboardOK = await page.evaluate((html) => {
+      try {
+        const item = new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([html.replace(/<[^>]+>/g, '')], { type: 'text/plain' }),
+        });
+        return navigator.clipboard.write([item]).then(() => true).catch(() => false);
+      } catch { return false; }
+    }, cleanedHtml).catch(() => false);
+
+    if (clipboardOK) {
+      await page.keyboard.press('Meta+V');
+      log('📋 본문 클립보드 paste 완료');
+    } else {
+      log('⚠️ 클립보드 사용 불가 — plain text type fallback');
+      const plain = bodyHtml.replace(/<style[\s\S]*?<\/style>/g, '')
+                            .replace(/<script[\s\S]*?<\/script>/g, '')
+                            .replace(/<[^>]+>/g, '')
+                            .replace(/\n{3,}/g, '\n\n')
+                            .trim();
+      await page.keyboard.type(plain.slice(0, 5000), { delay: 5 });
+    }
+    await sleep(2000);
 
     // 6) 발행 (DRY_RUN이면 임시저장만)
     if (DRY_RUN) {
-      log('🧪 DRY_RUN — 발행 안 함, 임시저장만');
-      await page.keyboard.press('Meta+S').catch(() => page.keyboard.press('Control+S'));
-      await page.waitForTimeout(2000);
+      log('🧪 DRY_RUN — 발행 안 함, 임시저장 버튼 클릭');
+      const saveBtn = await findFirst(page, [
+        'button:has-text("저장")',
+        '.btn_save',
+      ], '저장 버튼', 8000);
+      await saveBtn.click();
+      await sleep(2500);
     } else {
-      const publishBtn = await findFirst(editorFrame, [
+      const publishBtn = await findFirst(page, [
         'button.publish_btn__m9KHH',
         'button:has-text("발행")',
-        '.se-publish-button',
+        '.btn_publish',
       ], '발행 버튼');
       await publishBtn.click();
-      await page.waitForTimeout(2000);
+      await sleep(1500);
 
-      // 최종 발행 확인 버튼
-      const confirmBtn = await findFirst(editorFrame, [
+      const confirmBtn = await findFirst(page, [
         'button.confirm_btn__WEaBq',
+        '.btn_publish',
         'button:has-text("발행"):not(:has-text("예약"))',
       ], '최종 발행 확인', 8000);
       await confirmBtn.click();
@@ -243,9 +298,6 @@ async function main() {
       shot,
     );
     throw err;
-  } finally {
-    releaseLock();
-    await context.close();
   }
 }
 

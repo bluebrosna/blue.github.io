@@ -31,7 +31,8 @@ const T = {
   codeLine: "white-space:pre;",
   blockquoteWrap: "border-left:6px solid #515151;padding:10px 20px;margin:0;",
   blockquoteP: "font-size:19px;line-height:1.8;color:#333;margin:0;font-family:'Nanum Gothic','나눔고딕',sans-serif;",
-  hr: "border:none;height:1px;background:#ddd;margin:0;",
+  hr: "border:none;height:1px;background:#ddd;margin:18px 0;",
+  imgPlaceholder: "border:1px dashed #c8c8c8;background:#fafafa;padding:14px;text-align:center;color:#888;font-size:13px;font-family:sans-serif;margin:0;",
   tableWrap: "overflow-x:auto;",
   table: "border-collapse:separate;width:100%;font-size:15px;border:solid #d2d2d2;border-width:1px 0 0 1px;",
   thead: "",
@@ -45,7 +46,9 @@ const T = {
   bullet3: "▪",
 };
 
-const SPACER = `<p style="font-size:8px;line-height:1;margin:0;">&nbsp;</p>`;
+// 빈 단락은 네이버 SmartEditor에서 얇은 회색 선처럼 렌더링되는 경우가 있어 제거.
+// 단락 간 간격은 네이버 에디터 자체 줄간격에 맡긴다.
+const SPACER = ``;
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const NBSP = "&nbsp;";
 const indent = (depth) => NBSP.repeat(Math.max(0, depth) * 4);
@@ -67,9 +70,10 @@ function renderInlineNode(node) {
     }
     case "br": return "<br/>";
     case "img": {
+      // 네이버는 외부 이미지를 차단. 텍스트 placeholder로 대체.
       const src = node.getAttribute("src") || "";
-      const alt = node.getAttribute("alt") || "";
-      return `<img src="${esc(src)}" alt="${esc(alt)}" style="${T.img}" />`;
+      const alt = node.getAttribute("alt") || "이미지";
+      return `<span>[📷 ${esc(alt)} — 발행 전 직접 업로드 필요: ${esc(src)}]</span>`;
     }
     case "span": case "font": return kids;
     case "u": return `<u>${kids}</u>`;
@@ -191,10 +195,11 @@ function renderBlockNode(node, out) {
       return;
     }
     case "img": {
+      // 네이버는 외부 이미지를 차단. 블록-레벨도 placeholder로.
       pushSpacer();
       const src = node.getAttribute("src") || "";
-      const alt = node.getAttribute("alt") || "";
-      out.push(`<p style="margin:0;"><img src="${esc(src)}" alt="${esc(alt)}" style="${T.img}" /></p>`);
+      const alt = node.getAttribute("alt") || "이미지";
+      out.push(`<p style="${T.imgPlaceholder}">📷 ${esc(alt)}<br/><span style="font-size:11px;color:#aaa;">발행 전 직접 업로드 필요 · 원본: ${esc(src).slice(0, 80)}${src.length > 80 ? '...' : ''}</span></p>`);
       return;
     }
     case "figure": {
@@ -268,10 +273,11 @@ if (!article) {
   process.exit(1);
 }
 
-// Get title
+// Get title (제목 영역에 들어가는 것). markdown 본문에 # 헤딩이 또 있으면 본문에서도 모두 제거하여 중복 방지.
 const firstH1 = article.querySelector("h1") || doc.querySelector("h1");
 let title = firstH1 ? firstH1.textContent.trim() : "Untitled";
-if (firstH1) firstH1.remove();
+// 본문에 있는 모든 H1 제거 (제목 중복 방지 — 제목은 어차피 별도 필드에 들어감)
+article.querySelectorAll("h1").forEach((h) => h.remove());
 
 // Also remove TOC, callout headers, etc.
 const tocEl = article.querySelector(".toc");

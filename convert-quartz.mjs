@@ -301,19 +301,14 @@ for (const c of Array.from(article.childNodes)) {
   renderBlockNode(c, out);
 }
 
-// 이미지가 있으면 본문 끝에 일괄 정리 섹션 추가
+// 이미지가 있으면 본문 끝에 URL만 간단히 추가 (수동 업로드용)
 if (imageCollector.items.length > 0) {
   out.push(`<hr style="${T.hr}" />`);
-  out.push(`<h2 style="${T.h2}">📷 본문 이미지 (수동 업로드 필요)</h2>`);
-  out.push(`<p style="${T.p};color:#888;">본문의 [📷N] 위치에 아래 이미지를 직접 업로드해주세요.</p>`);
   imageCollector.items.forEach((img, i) => {
     const n = i + 1;
-    const sectionInfo = img.section ? ` · 위치: <strong style="${T.strong}">${esc(img.section)}</strong>` : "";
     out.push(
-      `<p style="${T.p}">` +
-      `<strong style="${T.strong}">[📷${n}]</strong> ${esc(img.alt)}${sectionInfo}<br/>` +
-      `<a href="${esc(img.src)}" style="${T.a}">${esc(img.src)}</a>` +
-      `</p>`
+      `<p style="${T.p}">[📷${n}] ${esc(img.alt)}<br/>` +
+      `<a href="${esc(img.src)}" style="${T.a}">${esc(img.src)}</a></p>`
     );
   });
 }

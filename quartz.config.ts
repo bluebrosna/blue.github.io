@@ -13,7 +13,7 @@ const config: QuartzConfig = {
     enableSPA: true,
     enablePopovers: true,
     locale: "ko-KR",
-    baseUrl: "bluebrosna.github.io",
+    baseUrl: "https://bluebrosna.github.io",
     ignorePatterns: ["private", "templates", ".obsidian"],
     defaultDateType: "modified",
     theme: {

@@ -49,6 +49,10 @@ const T = {
 // 빈 단락은 네이버 SmartEditor에서 얇은 회색 선처럼 렌더링되는 경우가 있어 제거.
 // 단락 간 간격은 네이버 에디터 자체 줄간격에 맡긴다.
 const SPACER = ``;
+
+// 이미지 수집기 — 본문에서는 짧은 마커로 표시하고, 글 끝에 일괄 정리한다.
+// 옵션 1 (위치별 자동 업로드)은 후속 작업으로 미뤄둠.
+const imageCollector = { items: [], lastSection: null };
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const NBSP = "&nbsp;";
 const indent = (depth) => NBSP.repeat(Math.max(0, depth) * 4);
@@ -70,10 +74,11 @@ function renderInlineNode(node) {
     }
     case "br": return "<br/>";
     case "img": {
-      // 네이버는 외부 이미지를 차단. 텍스트 placeholder로 대체.
+      // 네이버는 외부 이미지를 차단. 짧은 마커로만 표시, 원본은 끝에 정리.
       const src = node.getAttribute("src") || "";
       const alt = node.getAttribute("alt") || "이미지";
-      return `<span>[📷 ${esc(alt)} — 발행 전 직접 업로드 필요: ${esc(src)}]</span>`;
+      imageCollector.items.push({ src, alt, section: imageCollector.lastSection });
+      return `[📷${imageCollector.items.length}]`;
     }
     case "span": case "font": return kids;
     case "u": return `<u>${kids}</u>`;
@@ -120,6 +125,8 @@ function renderBlockNode(node, out) {
       const level = parseInt(tag[1], 10);
       const style = [T.h1, T.h2, T.h3, T.h4, T.h5, T.h6][level - 1];
       const inner = Array.from(node.childNodes).map(renderInlineNode).join("");
+      // 이미지 위치 추적용 — 가장 최근 헤딩 텍스트 기억
+      imageCollector.lastSection = (node.textContent || "").trim().slice(0, 60);
       out.push(`<h${level} style="${style}">${inner}</h${level}>`);
       return;
     }
@@ -195,11 +202,12 @@ function renderBlockNode(node, out) {
       return;
     }
     case "img": {
-      // 네이버는 외부 이미지를 차단. 블록-레벨도 placeholder로.
+      // 네이버는 외부 이미지 차단. 짧은 마커만 본문에 남기고 원본은 끝에 정리.
       pushSpacer();
       const src = node.getAttribute("src") || "";
       const alt = node.getAttribute("alt") || "이미지";
-      out.push(`<p style="${T.imgPlaceholder}">📷 ${esc(alt)}<br/><span style="font-size:11px;color:#aaa;">발행 전 직접 업로드 필요 · 원본: ${esc(src).slice(0, 80)}${src.length > 80 ? '...' : ''}</span></p>`);
+      imageCollector.items.push({ src, alt, section: imageCollector.lastSection });
+      out.push(`<p style="${T.p};color:#999;">[📷${imageCollector.items.length}]</p>`);
       return;
     }
     case "figure": {
@@ -291,6 +299,23 @@ footnotes.forEach(f => f.remove());
 const out = [];
 for (const c of Array.from(article.childNodes)) {
   renderBlockNode(c, out);
+}
+
+// 이미지가 있으면 본문 끝에 일괄 정리 섹션 추가
+if (imageCollector.items.length > 0) {
+  out.push(`<hr style="${T.hr}" />`);
+  out.push(`<h2 style="${T.h2}">📷 본문 이미지 (수동 업로드 필요)</h2>`);
+  out.push(`<p style="${T.p};color:#888;">본문의 [📷N] 위치에 아래 이미지를 직접 업로드해주세요.</p>`);
+  imageCollector.items.forEach((img, i) => {
+    const n = i + 1;
+    const sectionInfo = img.section ? ` · 위치: <strong style="${T.strong}">${esc(img.section)}</strong>` : "";
+    out.push(
+      `<p style="${T.p}">` +
+      `<strong style="${T.strong}">[📷${n}]</strong> ${esc(img.alt)}${sectionInfo}<br/>` +
+      `<a href="${esc(img.src)}" style="${T.a}">${esc(img.src)}</a>` +
+      `</p>`
+    );
+  });
 }
 
 const bodyHtml = out.join("");

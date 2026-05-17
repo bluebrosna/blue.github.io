@@ -49,9 +49,10 @@ jobs:
 
       - name: Copy static assets to public
         run: |
-          mkdir -p public/static
+          mkdir -p public/static public/static/videos
           cp static/*.png public/static/ 2>/dev/null || true
           cp -r static/assets/* public/static/assets/ 2>/dev/null || true
+          cp -r static/videos/* public/static/videos/ 2>/dev/null || true
 
       - name: Copy ads.txt to root
         run: cp quartz/static/ads.txt public/ 2>/dev/null || true

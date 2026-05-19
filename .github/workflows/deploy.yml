@@ -52,6 +52,7 @@ jobs:
           mkdir -p public/static public/static/videos
           cp static/*.png public/static/ 2>/dev/null || true
           cp -r static/assets/* public/static/assets/ 2>/dev/null || true
+          cp -r static/grok-images public/static/ 2>/dev/null || true
           cp -r static/videos/* public/static/videos/ 2>/dev/null || true
 
       - name: Copy ads.txt to root

@@ -1,17 +1,17 @@
 @use "./base.scss";
 
 :root {
-  --blue-hero-start: rgba(10, 24, 48, 0.96);
-  --blue-hero-mid: rgba(18, 65, 110, 0.84);
-  --blue-accent: #6bb7ff;
-  --blue-accent-2: #9ed3ff;
+  --blue-hero-start: #4e4e4e;
+  --blue-hero-mid: #2b2b2b;
+  --blue-accent: #84a59d;
+  --blue-accent-2: #d9d9d9;
 }
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(91, 170, 255, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(24, 104, 170, 0.16), transparent 24%),
-    linear-gradient(180deg, #f5faff 0%, #edf6ff 42%, #f9fcff 100%);
+    radial-gradient(circle at top left, rgba(143, 159, 169, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(132, 165, 157, 0.08), transparent 24%),
+    linear-gradient(180deg, #faf8f8 0%, #f5f0e8 60%, #faf8f8 100%);
 }
 
 body.dark {

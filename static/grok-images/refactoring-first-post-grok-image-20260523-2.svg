@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1408" height="768" viewBox="0 0 1408 768">
+  <rect width="1408" height="768" fill="#fbfbf8"/>
+  <text x="108" y="116" font-family="Arial, sans-serif" font-size="36" fill="#111827">Pipeline After Refactor</text>
+  <g fill="#ffffff" stroke="#cbd5e1" stroke-width="3">
+    <rect x="108" y="190" width="220" height="130" rx="12"/>
+    <rect x="408" y="190" width="220" height="130" rx="12"/>
+    <rect x="708" y="190" width="220" height="130" rx="12"/>
+    <rect x="1008" y="190" width="220" height="130" rx="12"/>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="28" fill="#111827">
+    <text x="158" y="268">Listen</text>
+    <text x="464" y="268">Draft</text>
+    <text x="768" y="268">Review</text>
+    <text x="1070" y="268">Publish</text>
+  </g>
+  <g stroke="#2563eb" stroke-width="10" stroke-linecap="round">
+    <path d="M334 255h62"/>
+    <path d="M634 255h62"/>
+    <path d="M934 255h62"/>
+  </g>
+  <g fill="#eef2ff">
+    <rect x="172" y="452" width="1064" height="58" rx="10"/>
+    <rect x="172" y="548" width="780" height="58" rx="10"/>
+  </g>
+  <text x="210" y="490" font-family="Arial, sans-serif" font-size="24" fill="#334155">Every step leaves evidence</text>
+  <text x="210" y="586" font-family="Arial, sans-serif" font-size="24" fill="#334155">No silent success, no hidden publish</text>
+</svg>

@@ -66,6 +66,8 @@ tags:
 
 그런데 이 루틴은 너무 의식적으로 만들 필요는 없습니다. 자연스럽게 반복되면 됩니다. 커피는 일정한 리듬을 주는 도구지, 억지로 삶을 정돈하는 장치는 아닙니다.
 
+![Visual pack 2](https://bluebrosna.github.io/static/grok-images/blog-harness-draft-3-15079882-blog-harness-draft-3-h2-2-20260524-151101-111764000.jpg)
+
 ## 커피의 기능은 기분에도 닿는다
 
 ### 잠깐의 여유를 만들어 준다
@@ -119,6 +121,8 @@ tags:
 솔직히 커피는 만능이 아닙니다. 그런데 도구로 보면 충분히 훌륭합니다. 필요한 순간에 필요한 만큼 도와주는 게 도구의 역할이니까요. 커피를 그렇게 보면 덜 실망하고 더 잘 쓰게 됩니다.
 
 커피의 기능은 크지만 과장하면 안 됩니다. 작은 도움을 꾸준히 주는 쪽으로 이해하는 게 가장 현실적입니다.
+
+![Visual pack 3](https://bluebrosna.github.io/static/grok-images/blog-harness-draft-3-15079882-blog-harness-draft-3-h2-1-20260524-151110-633044000.jpg)
 
 ## 이번 하네스 사고에서 배운 것
 
@@ -184,7 +188,7 @@ Grok 이미지도 마찬가지입니다. 이미지는 본문 H2를 기준으로 
 
 이 기준이 있으면 사용자는 돌아와서 “어디서 실패했나”가 아니라 “어떤 fallback이 왜 발동했나”를 바로 확인할 수 있습니다. 그 차이가 자동화의 신뢰도를 만듭니다. 완벽하게 실패가 없는 시스템보다, 실패를 작게 만들고 다음 단계로 복구하는 시스템이 실제 운영에서는 더 오래 버팁니다.
 
-![Visual pack 2](https://bluebrosna.github.io/static/grok-images/blog-harness-draft-3-15079882-blog-harness-draft-3-h2-2-20260524-151101-111764000.jpg)
+![Visual pack 4](https://bluebrosna.github.io/static/grok-images/blog-harness-draft-3-15079882-blog-harness-draft-3-h2-3-20260524-151126-568461000.jpg)
 
 ## 단독 모드 운영 메모
 
